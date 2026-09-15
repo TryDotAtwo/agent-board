@@ -1,0 +1,9 @@
+**
+!Dockerfile
+!start-desktop.sh
+!healthcheck.py
+!desktop.requirements.toml
+!bridge/
+!bridge/**
+!.cache/
+!.cache/chatgpt_amd64.deb

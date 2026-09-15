@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,readFile} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {TelegramBoardStore} from './telegram_board_store.mjs';
+const {TelegramBoardAttachments}=await import('./telegram_board_attachments.mjs').catch(()=>({}));
+test('concurrent bots download identical attachments once and reuse the content hash after restart',async t=>{
+  assert.equal(typeof TelegramBoardAttachments,'function','shared attachment cache is missing');
+  const root=await mkdtemp(path.join(os.tmpdir(),'board-attachments-test-'));
+  const store=new TelegramBoardStore({file:path.join(root,'board.sqlite')});
+  t.after(async()=>{store.close();await rm(root,{recursive:true,force:true});});
+  let downloads=0;const telegram={downloadFile:async()=>{downloads++;return Buffer.from('proof');}};
+  const cache=new TelegramBoardAttachments({root:path.join(root,'attachments'),store});
+  const r={attachments:[{kind:'document',file_id:'id-1',file_unique_id:'shared',file_name:'proof.md',file_size:5}]};
+  const [a,b]=await Promise.all([cache.download(r,telegram),cache.download({...r,attachments:[{...r.attachments[0],file_id:'other-bot-id'}]},telegram)]);
+  assert.equal(downloads,1);assert.equal(a.attachments[0].local_path,b.attachments[0].local_path);
+  assert.equal((await readFile(a.attachments[0].local_path)).toString(),'proof');
+  assert.match(a.attachments[0].sha256,/^[a-f0-9]{64}$/);
+  const again=new TelegramBoardAttachments({root:path.join(root,'attachments'),store});
+  await again.download(r,telegram);assert.equal(downloads,1);
+});

@@ -1,0 +1,30 @@
+# Owner configuration, credentials and native application state are not source.
+.env
+.env.*
+!.env.example
+**/.cache/
+**/node_modules/
+**/__pycache__/
+**/.private/
+**/private-payload.json
+**/board.env
+**/node-install.json
+**/node.json
+**/auth.json
+**/Cookies
+**/Cookies-journal
+**/Login Data
+**/*.sqlite
+**/*.sqlite-*
+**/*.db
+**/*.db-*
+**/*.log
+**/*.pem
+**/*.key
+
+# Build/download artifacts. Never distribute an authenticated Desktop image.
+**/*.deb
+**/*.tar
+**/*.tar.gz
+**/*.vhdx
+.publication-candidate/

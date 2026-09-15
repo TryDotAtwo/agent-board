@@ -1,0 +1,13 @@
+# Container-owned transport hook. Does not alter model permissions or tool policies.
+[[hooks.SessionStart]]
+matcher = "^(startup|resume)$"
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "node /opt/board/desktop_bootstrap.mjs"
+timeout = 10
+
+[[hooks.UserPromptSubmit]]
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = "node /opt/board/desktop_bootstrap.mjs"
+timeout = 10

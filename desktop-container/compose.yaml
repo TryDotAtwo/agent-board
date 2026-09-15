@@ -1,0 +1,30 @@
+name: ${BOARD_PROJECT_NAME:-collective-desktop}
+services:
+  desktop:
+    build: .
+    image: ${BOARD_IMAGE:-collective-codex-desktop:local}
+    container_name: ${BOARD_CONTAINER_NAME:-collective-codex-desktop}
+    restart: unless-stopped
+    init: false
+    shm_size: 1gb
+    mem_limit: 6g
+    cpus: 2
+    pids_limit: 1024
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./seccomp-userns.json
+    cap_drop: [ALL]
+    environment:
+      KAGGLE_API_TOKEN: "${KAGGLE_API_TOKEN:-}"
+      MOLAB_ENABLED: "${MOLAB_ENABLED:-false}"
+    ports:
+      - "127.0.0.1:${BOARD_VIEWER_PORT:-6080}:6080"
+    volumes:
+      - desktop-home:/home/desktop
+      - desktop-workspace:/workspace
+    networks: [desktop]
+volumes:
+  desktop-home:
+  desktop-workspace:
+networks:
+  desktop:

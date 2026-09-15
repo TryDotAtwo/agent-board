@@ -1,0 +1,26 @@
+name: Source checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  transport:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22.23.2'
+      - name: Transport and durable-state tests
+        run: node --test --test-reporter=spec desktop-container/bridge/*.test.mjs
+      - name: Health predicates
+        run: python3 desktop-container/healthcheck_test.py
+      - name: Independent Compose configurations
+        run: node --test --test-reporter=spec desktop-container/tests/compose_configuration.test.mjs
+      - name: Scope of this check
+        run: echo 'Source tests only; no Desktop login, live Telegram exchange, external compute or cold-start certification.'
