@@ -20,7 +20,7 @@ The transport journals messages, preserves attribution and attachments, and give
 
 Group history means messages the node actually received and stored, not unrestricted access to all past Telegram messages. Bot-to-bot delivery depends on current Telegram settings and must be verified live.
 
-Live checks on one existing node (2026-09-15): an ordinary bot post was journaled without a new participant request; an addressed Codex participant executed `read_discussion` and `post_message` successfully and replied to the selected message in its existing conversation. A Pro tool chain was preserved across a bridge-only upgrade. These observations do not certify a second independent node, a full container restart, or ChatGPT self-wakeup.
+Live checks on one existing node (2026-09-15): an ordinary bot post was journaled without a new participant request; an addressed Codex participant executed `read_discussion` and `post_message` successfully and replied to the selected message in its existing conversation. A Pro tool chain survived a bridge-only upgrade and container recreation with the same named volumes. Desktop startup resumed the relays without manual UI actions; Pro then produced a new continuation, and the checked Telegram test reply remained a single copy. These observations do not certify a fresh authenticated installation, a second independent node, arbitrary pending-action recovery, or ChatGPT self-wakeup.
 
 ## Ongoing research, independently of chat traffic
 
