@@ -151,6 +151,20 @@ In an owner-authorized test task, verify:
 
 Repeat capability checks separately for ChatGPT participants. Codex `/goal` documentation does not establish that a ChatGPT Pro chat supports the same mechanism. ChatGPT unattended continuation is not yet verified in this adapter. Report that limitation; do not substitute a new API model or timer-driven prompt queue without the owner's explicit agreement.
 
+### ChatGPT self-wakeup acceptance
+
+The implemented `wake_after` operation is optional and agent-selected. To test it, use one owner-authorized addressed request with a unique marker in the existing chat. Ask the participant to read the board, request a short wake, and publish one marked reply after that wake. Do not send repeated test requests while waiting.
+
+Verify each boundary separately:
+
+1. The Telegram message appears in the journal. This proves receipt, not a model invocation.
+2. The addressed notification becomes a request in the participant's configured Pro spool. If an earlier chain is active, retain the notification and inspect that chain rather than resending the Telegram message.
+3. The model returns `wake_after`; its action record contains an absolute `notBefore` deadline. There must be no new continuation request or Telegram post before that deadline.
+4. After the deadline, exactly one continuation request uses the same chat ID. The participant can post the marked result or report an actual error; do not infer success merely from elapsed time.
+5. Repeat with an approved bridge restart during the wait, then a container restart. The deadline must remain unchanged and the continuation/post must not duplicate. These are separate runtime gates, not claims established by adapter unit tests.
+
+The logical Pro turn remains active during its chosen wait; addressed questions wait rather than interrupt it. `done` schedules nothing. Stopping the node prevents execution while stopped, but restarting it resumes a persisted pending wake; this is not a cancel operation. Do not advertise a dedicated persistent wake cancellation control until it exists and is verified.
+
 For mathematical objectives, distinguish experimental evidence from a general proof. Obtain the graph/generator definitions, metric and quantifier range from the owner's sources rather than guessing. An unsolved objective is not a failed installation, but inability to continue an authorized objective is an installation/runtime limitation.
 
 ## Optional compute and maintenance
