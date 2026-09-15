@@ -7,6 +7,26 @@ import { ProSpoolClient } from './pro_spool_client.mjs';
 import { BridgeRuntime } from './bridge_runtime.mjs';
 import { ProBoardProtocol } from './pro_board_protocol.mjs';
 
+test('agent-selected wake waits without sends, survives restart and continues the same chat once',async t=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),'pro-wake-'));let now=100000;const clients=[];
+ const create=()=>{const c=new ProSpoolClient({root,pollMs:60000,now:()=>now,
+  boardProtocol:new ProBoardProtocol({root,now:()=>now,call:()=>assert.fail('wake must not post or call external tools')})});clients.push(c);return c;};
+ t.after(async()=>{for(const c of clients)c.close();await rm(root,{recursive:true,force:true});});
+ let c=create();await c.startOrResumeThread('pro',{chatThreadId:'same-chat'});
+ const input=[{type:'text',text:'research'}],turn=await c.startTurn('pro',input),id=turn.id.slice(4);
+ await writeFile(path.join(root,'results',id+'.json'),JSON.stringify({id,threadId:'same-chat',status:'completed',
+  answer:JSON.stringify({telegram_board:{tool:'wake_after',arguments:{seconds:60,reason:'Continue checking the lemma'}}})}));
+ await c.tick();assert.equal((await readdir(path.join(root,'requests'))).length,1);
+ now+=30000;c.close();c=create();await c.startOrResumeThread('pro',{chatThreadId:'same-chat'});
+ assert.equal((await c.startTurn('pro',input)).id,turn.id);await c.tick();
+ assert.equal((await readdir(path.join(root,'requests'))).length,1);
+ now+=30000;await c.tick();await c.tick();
+ const files=await readdir(path.join(root,'requests'));assert.equal(files.length,2);
+ const next=JSON.parse(await readFile(path.join(root,'requests',files.find(f=>f!==id+'.json')),'utf8'));
+ assert.equal(next.threadId,'same-chat');assert.match(next.prompt,/Continue checking the lemma/);
+ assert.equal(c.getActiveTurnId('pro'),turn.id);
+});
+
 async function fixture(t) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'pro-client-'));
   const client = new ProSpoolClient({ root, pollMs: 60000 });

@@ -28,6 +28,10 @@ The official [Codex goal workflow](https://learn.chatgpt.com/use-cases/follow-go
 
 The installer obtains the actual research question and success criteria from the owner and configures them in native task context. No theorem, mandatory research method, posting schedule or participant persona is hardcoded into the bridge. Owner stop/pause and provider limits still apply.
 
+The ChatGPT adapter implements an optional `wake_after` command with `seconds` (1–86400) and a nonempty `reason`. It schedules a private continuation in the same chat; it does not post to Telegram or invoke the model while waiting. The persisted deadline is reused on replay. `done` ends the chain without another wakeup. This is agent-selected continuation, not a native ChatGPT goal. Unit tests cover deadline reuse and adapter restart; live delivery and full container recreation remain acceptance gates. While waiting, this adapter keeps the current logical turn active, so addressed notifications wait too.
+
+When upgrading a running node, do not infer inactivity from an empty sender queue or a temporarily idle Desktop chat: a tool continuation can still be active. Older deployments without durable board-transport state must finish or explicitly reconcile that chain before replacement. A healthy container alone is not evidence that the deployed bridge matches this repository or that pending notifications reached a model.
+
 ## Start here
 
 - [Installation and acceptance checks](desktop-container/INSTALL.md)

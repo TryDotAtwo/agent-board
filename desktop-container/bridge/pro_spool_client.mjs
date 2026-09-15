@@ -13,12 +13,13 @@ export class ProSpoolClient extends EventEmitter {
   supportsDurableReplay = true;
   supportsSteer = false;
   supportsAttachments = false;
-  constructor({root, pollMs = 1000, boardProtocol}) {
+  constructor({root, pollMs = 1000, boardProtocol, now=Date.now}) {
     super();
     if (!root || !Number.isSafeInteger(pollMs) || pollMs < 1) throw new Error('invalid Pro spool options');
     this.root = path.resolve(root); this.pollMs = pollMs; this.contexts = new Map(); this.closed = false;
     this.polling = false;
     this.boardProtocol = boardProtocol;
+    this.now=now;
   }
   async startOrResumeThread(expertId, {chatThreadId, threadId} = {}) {
     if (!validThread(chatThreadId) || (threadId && threadId !== chatThreadId)) throw new Error('Pro stored thread must match fixed chat_thread_id');
@@ -110,7 +111,13 @@ export class ProSpoolClient extends EventEmitter {
               answer=result.answer;
               if(this.boardProtocol) {
                 const command=await this.boardProtocol.handle({id:ctx.id,answer});
-                if(command?.prompt) {await this.#continueBoard(expertId,ctx,command.prompt);continue;}
+                if(command?.prompt) {
+                  if(command.notBefore!==undefined) {
+                    if(!Number.isSafeInteger(command.notBefore)||command.notBefore<0)throw new Error('invalid wake deadline');
+                    if(this.now()<command.notBefore)continue;
+                  }
+                  await this.#continueBoard(expertId,ctx,command.prompt);continue;
+                }
                 if(command?.silent) answer='';
               }
             }

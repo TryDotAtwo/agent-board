@@ -14,6 +14,17 @@ async function setup(t) {
   return {root,calls,call,protocol:new ProBoardProtocol({root,call})};
 }
 const envelope=(tool,args={})=>JSON.stringify({telegram_board:{tool,arguments:args}});
+test('wake arguments are bounded and a replay retains its original deadline',async t=>{
+ const {root}=await setup(t);let now=1000;
+ const p=new ProBoardProtocol({root,now:()=>now,call:()=>assert.fail('local wake only')});
+ for(const args of [{seconds:0,reason:'x'},{seconds:1.5,reason:'x'},{seconds:86401,reason:'x'},
+  {seconds:1,reason:''},{seconds:1,reason:'x',chat_id:1}]){
+  assert.match((await p.handle({id:'1'.repeat(64),answer:envelope('wake_after',args)})).prompt,/error/i);
+ }
+ const request={id:'2'.repeat(64),answer:envelope('wake_after',{seconds:10,reason:'lemma'})};
+ const first=await p.handle(request);assert.equal(first.notBefore,11000);
+ now=5000;assert.deepEqual(await new ProBoardProtocol({root,now:()=>now,call:()=>assert.fail()}).handle(request),first);
+});
 test('research tools are discoverable and uncertain browser actions are not repeated',async t=>{
  const {root}=await setup(t);let calls=0;
  const tools=[{name:'browser_call',inputSchema:{type:'object',properties:{name:{type:'string'},arguments:{type:'object',additionalProperties:true}},required:['name']}}];
