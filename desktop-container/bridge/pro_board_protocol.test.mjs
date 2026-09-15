@@ -14,6 +14,15 @@ async function setup(t) {
   return {root,calls,call,protocol:new ProBoardProtocol({root,call})};
 }
 const envelope=(tool,args={})=>JSON.stringify({telegram_board:{tool,arguments:args}});
+
+test('Pro file publication gets a stable transport key and is not invoked twice',async t=>{
+ const {protocol,calls}=await setup(t);
+ const request={id:'9'.repeat(64),answer:envelope('post_file',{path:'/workspace/proof.txt',reply_to:7})};
+ await protocol.handle(request);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].arguments.idempotency_key,'pro-'+'9'.repeat(64));
+ await protocol.handle(request);assert.equal(calls.length,1);
+});
 test('wake arguments are bounded and a replay retains its original deadline',async t=>{
  const {root}=await setup(t);let now=1000;
  const p=new ProBoardProtocol({root,now:()=>now,call:()=>assert.fail('local wake only')});

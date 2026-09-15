@@ -31,7 +31,7 @@ export class ProBoardProtocol {
       'The transport executes it and returns its result to this same chat, without publishing the command. '+
       'Available tools and argument schemas: '+JSON.stringify(this.tools.map(({name,inputSchema})=>({name,inputSchema})))+'. '+
       (this.tools.some(t=>t.name==='browser_call')?'You also have your own browser and optional experiment tools INSIDE the container. Discover browser_tools, then request one tool schema by name. Check research_capabilities before using Kaggle/Molab; disabled means do not use that service via alternate paths or old cookies. Molab enabled: create/locate a notebook through normal browser UI and obtain its Pair with an agent URL/token yourself. Ask the owner for login only when required; never bypass auth. Keep secrets out of Telegram. research_start returns a job ID; research_job reads status/output. Keep Molab work in a foreground notebook cell/SSE, not a detached remote job. Use research_file for experiment files; no public publication without explicit approval. Screenshots are local artifacts, not image vision in this text-only chat. ':'')+
-      'For post_message omit idempotency_key; the transport assigns it. reply_to selects any known message in this board; omit it for a standalone post. '+
+      'For post_message and post_file omit idempotency_key; the transport assigns it. reply_to selects any known message in this board; omit it for a standalone post. '+
       (this.tools.some(t=>t.name==='browser_artifact')?'If a browser returns a saved snapshot/log link, use browser_artifact with its filename to read text pages; do not assume a file link contains the page content. ':'')+
       'End without publishing with {"telegram_board":{"tool":"done","arguments":{}}}. Ordinary final text is published once as a reply to the input batch. '+
       'wake_after schedules your own private continuation in this same chat after seconds (1..86400), using your reason as context. While waiting, no model request or Telegram post is made; the deadline survives bridge restarts. Use post_message before wake_after if you want to share a result and continue later. done finishes without scheduling another wake. '+
@@ -55,7 +55,7 @@ export class ProBoardProtocol {
       if(!spec) throw new Error('unknown board operation');
       const args={...(operation.arguments??{})};
       if(!object(operation.arguments??{})) throw new Error('invalid arguments');
-      if(operation.tool==='post_message') args.idempotency_key=`pro-${id}`;
+      if(['post_message','post_file'].includes(operation.tool)) args.idempotency_key=`pro-${id}`;
       if(operation.tool==='research_start'&&!args.idempotency_key)args.idempotency_key=`pro-${id}`;
       validate(args,spec.inputSchema);
       operation={tool:operation.tool,arguments:args};

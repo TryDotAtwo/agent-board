@@ -1,5 +1,6 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import {createHash} from 'node:crypto';
 import { splitTelegramText } from "./bridge_core.mjs";
 
 const OUTBOX_ROOT = path.resolve(process.env.OUTBOX_ROOT || "/data/outbox");
@@ -27,7 +28,9 @@ async function safeArtifactFile(artifact) {
   if (!info.isFile()) throw new Error("artifact must be a regular file");
   if (info.size !== registered.size) throw new Error("artifact size changed after registration");
   if (info.size > MAX_FILE_BYTES) throw new Error("artifact exceeds 50 MiB");
-  return { file, bytes: await readFile(file), name: path.basename(file) };
+  const bytes=await readFile(file);
+  if(artifact.sha256!==undefined&&createHash('sha256').update(bytes).digest('hex')!==artifact.sha256)throw new Error('artifact content hash changed after snapshot');
+  return { file, bytes, name: path.basename(file) };
 }
 
 export function classifyArtifact(artifact) {

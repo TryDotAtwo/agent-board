@@ -7,8 +7,8 @@ const number=(v,name,min=0,max=Number.MAX_SAFE_INTEGER)=>{
   if(!Number.isSafeInteger(v)||v<min||v>max) throw new Error(`invalid ${name}`); return v;
 };
 export class TelegramBoardService {
-  constructor({store,configs,send,attachmentRoots=[],minPostIntervalMs=3000,now=Date.now}) {
-    Object.assign(this,{store,send,attachmentRoots,minPostIntervalMs,now});
+  constructor({store,configs,send,prepareFile,attachmentRoots=[],minPostIntervalMs=3000,now=Date.now}) {
+    Object.assign(this,{store,send,prepareFile,attachmentRoots,minPostIntervalMs,now});
     this.configs=new Map(configs.filter(c=>c.board).map(c=>[c.id,c]));
     this.lastPost=new Map();
   }
@@ -29,8 +29,9 @@ export class TelegramBoardService {
     if(tool==='search_messages') return this.store.search({chatId,query:args.query,topicId:args.topic_id,
       afterMessageId:args.after_message_id??0,limit:args.limit??50});
     if(tool==='read_attachment') return this.#attachment(chatId,args);
-    if(tool==='post_message') {
-      if(typeof args.text!=='string'||!args.text.trim()||args.text.length>3800) throw new Error('post text must be 1..3800 characters');
+    if(tool==='post_message'||tool==='post_file') {
+      if(tool==='post_message'&&(typeof args.text!=='string'||!args.text.trim()||args.text.length>3800)) throw new Error('post text must be 1..3800 characters');
+      if(tool==='post_file'&&(typeof args.path!=='string'||!args.path.trim()||!this.prepareFile))throw new Error('file publication is unavailable or path is invalid');
       if(args.chat_id!==undefined) throw new Error('destination chat is fixed by the bridge');
       if(args.topic_id!==undefined) number(args.topic_id,'topic_id',1);
       let topicId=args.topic_id;
@@ -41,7 +42,8 @@ export class TelegramBoardService {
         if(topicId!==undefined && topicId!==(target.message_thread_id||0)) throw new Error('reply target belongs to a different topic');
         topicId=target.message_thread_id;
       }
-      const body={chatId,text:args.text,replyTo:args.reply_to,topicId};
+      const body={chatId,replyTo:args.reply_to,topicId,...(tool==='post_file'
+        ?{artifact:await this.#fileSnapshot(expertId,args)}:{text:args.text})};
       // Completed retries are free; uncertain sends are retained for reconciliation.
       const prior=this.store.getState(`last-post:${expertId}`);
       const sameRequest=prior?.key===args.idempotency_key;
@@ -54,10 +56,25 @@ export class TelegramBoardService {
       this.lastPost.set(expertId,this.now());
       this.store.setState(`last-post:${expertId}`,{key:args.idempotency_key});
       const sent=await this.send(expertId,body);
-      const event=this.store.finishPost(expertId,args.idempotency_key,telegramRecord(sent));
+      const record=telegramRecord(sent);
+      if(body.artifact && record.attachments.length===1) {
+        record.attachments[0].local_path=body.artifact.path;
+        record.attachments[0].sha256=body.artifact.sha256;
+      }
+      const event=this.store.finishPost(expertId,args.idempotency_key,record);
       return {message_id:event.message_id,seq:event.seq};
     }
     throw new Error(`unknown Telegram board tool: ${tool}`);
+  }
+  async #fileSnapshot(expertId,args) {
+    if(typeof args.idempotency_key!=='string'||!args.idempotency_key.trim()||args.idempotency_key.length>200)throw new Error('idempotency key is required');
+    const key=`file-snapshot:${expertId}:${args.idempotency_key}`;
+    const fingerprint=JSON.stringify([args.path,args.caption??'',args.reply_to??null,args.topic_id??null]);
+    const reuse=prior=>{if(prior.fingerprint!==fingerprint)throw new Error('idempotency key already belongs to a different file post');return prior.artifact;};
+    const prior=this.store.getState(key);if(prior)return reuse(prior);
+    const artifact=await this.prepareFile(expertId,args);
+    const concurrent=this.store.getState(key);if(concurrent)return reuse(concurrent);
+    this.store.setState(key,{fingerprint,artifact});return artifact;
   }
   async #attachment(chatId,args) {
     number(args.message_id,'message_id',1); number(args.attachment_index,'attachment_index',0,100);
@@ -91,6 +108,8 @@ const integer={type:'integer',minimum:0};
 const limit={type:'integer',minimum:1,maximum:200};
 const spec=(name,description,properties,required=[])=>({name,description,inputSchema:{type:'object',properties,required,additionalProperties:false}});
 export const telegramBoardTools=[
+  spec('post_file','Publish a file from an approved container source directory to this board. The transport snapshots the file before sending; retry the same request with the same key. Choose reply_to or omit it for a standalone document. Do not send credentials or repeat the file in your final answer.',
+    {path:{type:'string',minLength:1,maxLength:4096},caption:{type:'string',maxLength:1024},reply_to:{type:'integer',minimum:1},topic_id:{type:'integer',minimum:1},idempotency_key:{type:'string',minLength:1,maxLength:200}},['path','idempotency_key']),
   spec('read_mentions','Read latest versions of messages addressed to your bot by exact @mention or reply. Returns a bounded recent page and total count. For older pages keep after_cursor and set through_cursor to nextBeforeCursor while hasMore. Reading never requires replying or changes your general reading cursor.',
     {after_cursor:integer,through_cursor:integer,limit}),
   spec('read_updates','Read original new messages and edits from your authorized Telegram board, including peers. Omitting after_cursor continues your reading cursor. Reading does not require replying. Use explicit cursors and hasMore for pagination.',

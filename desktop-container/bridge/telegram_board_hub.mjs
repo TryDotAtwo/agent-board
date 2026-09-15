@@ -7,6 +7,7 @@ import {TelegramBoardInbox} from './telegram_board_inbox.mjs';
 import {TelegramBoardAttachments} from './telegram_board_attachments.mjs';
 import {TelegramBotClient} from './telegram_output.mjs';
 import {telegramRecord} from './bridge_core.mjs';
+import {createBoardFilePreparer} from './board_file_snapshot.mjs';
 
 export async function createTelegramBoardHub({configs,dataRoot,fetchImpl,log=async()=>{}}) {
   const chats=new Set(configs.filter(c=>c.board).map(c=>c.chatId));
@@ -15,7 +16,7 @@ export async function createTelegramBoardHub({configs,dataRoot,fetchImpl,log=asy
   const store=new TelegramBoardStore({file:path.join(root,'board.sqlite')});
   const attachments=new TelegramBoardAttachments({store,root:path.join(root,'attachments')});
   const archive=(record,options)=>chats.has(record.chat_id)?store.append(record,options):undefined;
-  const attachmentRoots=[attachments.root,...configs.filter(c=>chats.has(c.chatId)).map(c=>path.join(dataRoot,'experts',c.id,'attachments'))];
+  const attachmentRoots=[attachments.root,path.join(dataRoot,'outbox'),...configs.filter(c=>chats.has(c.chatId)).map(c=>path.join(dataRoot,'experts',c.id,'attachments'))];
   // Import only the transport's existing local records, not fabricated Telegram history.
   try {
     for(const cfg of configs.filter(c=>chats.has(c.chatId))) {
@@ -46,12 +47,16 @@ export async function createTelegramBoardHub({configs,dataRoot,fetchImpl,log=asy
     clients.set(config.id,client);return client;
   }
   const service=new TelegramBoardService({store,configs,attachmentRoots,
+    prepareFile:createBoardFilePreparer({outboxRoot:path.join(dataRoot,'outbox'),rootsFor:id=>{
+      const cfg=configs.find(c=>c.id===id&&c.board);
+      return cfg?[cfg.cwd||path.join('/workspace',id),path.join(dataRoot,'research',id),path.join(dataRoot,'outbox')]:[];
+    }}),
     send:async(id,body)=>{
       if(!postClients.has(id)) {
         const cfg=configs.find(c=>c.id===id&&c.board);
         postClients.set(id,new TelegramBotClient({token:cfg.token,fetchImpl,retryDelays:[]}));
       }
-      return postClients.get(id).sendText(body);
+      return body.artifact?postClients.get(id).sendDocument(body):postClients.get(id).sendText(body);
     }});
   return {store,service,archive,attachments,attachmentRoots,telegram,
     includes:chatId=>chats.has(chatId),

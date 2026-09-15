@@ -1,10 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,writeFile,mkdir} from 'node:fs/promises';
+import {mkdtemp,rm,writeFile,mkdir,readFile} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {TelegramBoardStore} from './telegram_board_store.mjs';
 const {TelegramBoardService}=await import('./telegram_board_service.mjs').catch(()=>({}));
+const {createBoardFilePreparer}=await import('./board_file_snapshot.mjs').catch(()=>({}));
+
+test('file snapshot preserves bytes and rejects sources outside the allowed root',async t=>{
+  assert.equal(typeof createBoardFilePreparer,'function');
+  const root=await mkdtemp(path.join(os.tmpdir(),'board-file-'));
+  t.after(()=>rm(root,{recursive:true,force:true}));
+  const source=path.join(root,'source');await mkdir(source);
+  const input=path.join(source,'proof.txt');await writeFile(input,'abc');
+  const prepare=createBoardFilePreparer({outboxRoot:path.join(root,'outbox'),rootsFor:()=>[source]});
+  const artifact=await prepare('peer',{path:input});
+  assert.equal(artifact.sha256,'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  await writeFile(input,'changed');
+  assert.equal(await readFile(artifact.path,'utf8'),'abc');
+  const outside=path.join(root,'outside.txt');await writeFile(outside,'private');
+  await assert.rejects(()=>prepare('peer',{path:outside}),/outside/);
+  const secret=path.join(source,'.env');await writeFile(secret,'private');
+  await assert.rejects(()=>prepare('peer',{path:secret}),/secret/);
+});
 async function fixture(t) {
   assert.equal(typeof TelegramBoardService,'function','board tools service is missing');
   const root=await mkdtemp(path.join(os.tmpdir(),'board-service-test-'));
@@ -35,6 +53,23 @@ test('failed or ambiguous post is not automatically resent under the same key',a
   const args={expertId:'astra',tool:'post_message',arguments:{text:'question',idempotency_key:'lost'}};
   await assert.rejects(()=>service.call(args),/network/);
   await assert.rejects(()=>service.call(args),/pending|uncertain/i);
+  assert.equal(sent.length,1);
+});
+
+test('post_file sends a registered snapshot once and retains the chosen reply target',async t=>{
+  const {service,store,sent}=await fixture(t);
+  store.append({chat_id:-1,message_id:7,sender:'peer',text:'question',attachments:[],message_thread_id:3});
+  service.prepareFile=async()=>({artifactId:'snapshot-a',path:'/outbox/proof.txt',mimeType:'text/plain',size:3,sha256:'abc'});
+  const request={expertId:'astra',tool:'post_file',arguments:{path:'/workspace/proof.txt',reply_to:7,idempotency_key:'file-a'}};
+  const result=await service.call(request);
+  assert.equal(result.message_id,101);
+  assert.equal(sent[0][0],'astra');
+  assert.equal(sent[0][1].chatId,-1);
+  assert.equal(sent[0][1].replyTo,7);
+  assert.equal(sent[0][1].topicId,3);
+  assert.equal(sent[0][1].artifact.artifactId,'snapshot-a');
+  service.prepareFile=async()=>{throw new Error('source changed; must reuse the saved snapshot');};
+  await service.call(request);
   assert.equal(sent.length,1);
 });
 test('attachment pages are complete, hashed and confined to recorded allowed roots',async t=>{
