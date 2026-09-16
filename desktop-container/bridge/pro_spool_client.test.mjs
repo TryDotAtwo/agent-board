@@ -7,6 +7,35 @@ import { ProSpoolClient } from './pro_spool_client.mjs';
 import { BridgeRuntime } from './bridge_runtime.mjs';
 import { ProBoardProtocol } from './pro_board_protocol.mjs';
 
+test('addressed input joins the ongoing Pro chain at a response boundary and survives replay',async t=>{
+ const root=await mkdtemp(path.join(os.tmpdir(),'pro-steer-'));const clients=[];
+ const create=()=>{const c=new ProSpoolClient({root,pollMs:60000,
+  boardProtocol:new ProBoardProtocol({root,call:async()=>({messages:[]})})});clients.push(c);return c;};
+ t.after(async()=>{clients.forEach(c=>c.close());await rm(root,{recursive:true,force:true});});
+ let c=create();await c.startOrResumeThread('pro',{chatThreadId:'same-chat'});
+ const input=[{type:'text',text:'Continue the long research goal'}];
+ const turn=await c.startTurn('pro',input),first=turn.id.slice(4);
+ await c.steerTurn('pro',[{type:'text',text:'Alice asks about the lower bound'}]);
+ await c.tick();assert.equal((await readdir(path.join(root,'requests'))).length,1);
+ c.close();c=create();await c.startOrResumeThread('pro',{chatThreadId:'same-chat'});await c.startTurn('pro',input);
+ await writeFile(path.join(root,'results',first+'.json'),JSON.stringify({id:first,threadId:'same-chat',status:'completed',
+  answer:JSON.stringify({telegram_board:{tool:'read_updates',arguments:{limit:5}}})}));
+ await c.tick();
+ const files=await readdir(path.join(root,'requests'));assert.equal(files.length,2);
+ const second=JSON.parse(await readFile(path.join(root,'requests',files.find(f=>f!==first+'.json')),'utf8'));
+ assert.equal(second.threadId,'same-chat');assert.match(second.prompt,/Alice asks about the lower bound/);
+ assert.match(second.prompt,/resume your goal/);assert.equal(c.getActiveTurnId('pro'),turn.id);
+ await c.steerTurn('pro',[{type:'text',text:'Bob asks a different question'}]);c.close();
+ c=create();await c.startOrResumeThread('pro',{chatThreadId:'same-chat'});await c.startTurn('pro',input);await c.tick();
+ assert.equal((await readdir(path.join(root,'requests'))).length,2);
+ await writeFile(path.join(root,'results',second.id+'.json'),JSON.stringify({id:second.id,threadId:'same-chat',status:'completed',
+  answer:JSON.stringify({telegram_board:{tool:'read_updates',arguments:{limit:5}}})}));
+ await c.tick();
+ const nextFiles=await readdir(path.join(root,'requests'));assert.equal(nextFiles.length,3);
+ const third=JSON.parse(await readFile(path.join(root,'requests',nextFiles.find(f=>!files.includes(f))),'utf8'));
+ assert.match(third.prompt,/Bob asks a different question/);assert.doesNotMatch(third.prompt,/Alice asks/);
+});
+
 test('agent-selected wake waits without sends, survives restart and continues the same chat once',async t=>{
  const root=await mkdtemp(path.join(os.tmpdir(),'pro-wake-'));let now=100000;const clients=[];
  const create=()=>{const c=new ProSpoolClient({root,pollMs:60000,now:()=>now,
@@ -34,6 +63,22 @@ async function fixture(t) {
   await client.startOrResumeThread('pro', { chatThreadId: 'chat-pro' });
   return { root, client };
 }
+
+for(const terminal of ['done','silent','final','wake'])test(`pending question is retained at ${terminal} boundary`,async t=>{
+ const {root,client}=await fixture(t);
+ client.boardProtocol=new ProBoardProtocol({root,call:async()=>({})});
+ const done=[];client.on('turnCompleted',x=>done.push(x));
+ const turn=await client.startTurn('pro',[{type:'text',text:'Long goal'}]),id=turn.id.slice(4);
+ await client.steerTurn('pro',[{type:'text',text:'Direct question from Alice'}]);
+ const result={id,threadId:'chat-pro',status:'completed',...(terminal==='silent'?{silent:true}:{answer:
+  terminal==='final'?'Result of the current calculation':JSON.stringify({telegram_board:{tool:terminal==='wake'?'wake_after':'done',arguments:terminal==='wake'?{seconds:3600,reason:'Continue the proof'}:{}}})})};
+ await writeFile(path.join(root,'results',id+'.json'),JSON.stringify(result));await client.tick();
+ const files=await readdir(path.join(root,'requests'));assert.equal(files.length,2);
+ const next=JSON.parse(await readFile(path.join(root,'requests',files.find(f=>f!==id+'.json')),'utf8'));
+ assert.match(next.prompt,/Direct question from Alice/);assert.equal(done.length,0);
+ if(terminal==='final')assert.match(next.prompt,/Result of the current calculation/);
+ if(terminal==='wake')assert.match(next.prompt,/Continue the proof/);
+});
 test('a tool catalog upgrade preserves the exact existing queued prompt rather than resending',async t=>{
  const {root,client}=await fixture(t);client.boardProtocol={instructions:()=> 'Old tool catalog'};
  const input=[{type:'text',text:'existing question'}];const turn=await client.startTurn('pro',input);client.close();

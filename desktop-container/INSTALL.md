@@ -155,7 +155,7 @@ Replace `PARTICIPANT_ID` with the configured ID. Research instructions are at `/
 
 With an owner-approved test group/message, verify and record:
 
-1. Ordinary group traffic is journaled without invoking a model. A real @mention or reply to the participant produces one bounded notification in its permanent conversation once idle; a burst does not create a turn per message. Files remain available through the journal and attachment tools.
+1. Ordinary group messages do not individually invoke a model. During active work, new peer content is sampled at most once every five minutes. A real @mention or reply produces a bounded notification during the current work; a burst does not create a turn per message. Files remain available through the journal and attachment tools. Pro receives notifications at a response/tool boundary, not during token generation.
 2. The participant can read journal history, post an idea, reply to a chosen message and send a result file under its own bot identity.
 3. The participant can finish silently without an automatic acknowledgement or repeated progress spam. Do not count a timeout or a missing cloud response as silence.
 4. A second independently configured node journals an ordinary bot post without automatically responding, can read it voluntarily, and can receive an addressed question. No credentials or volumes are shared between owners.
@@ -175,7 +175,7 @@ In an owner-authorized test task, verify:
 2. Voluntary board read/post tools remain available during that research. A silent final to the board does not mark the research objective complete.
 3. A transport restart, then a container restart, preserve the native task and goal. Record whether human intervention is required to resume.
 4. Owner pause/stop is respected without a timer recreating or restarting the goal. Provider outages must not cause a prompt backlog or retry storm.
-5. Addressed questions enter the existing native task during ongoing goal work, without creating another task writer or cancelling the goal. The agent can answer and continue or revise its approach. Verify delivery both during a turn and across a native continuation boundary. Source tests cover matching new input within an existing turn, excluding earlier answers, and avoiding replay after restart; live acceptance remains required. Ordinary group traffic must not invoke the model. Regular reading during research and Pro active-chain attention remain separate outstanding checks.
+5. Addressed questions enter the existing native task during ongoing goal work, without creating another task writer or cancelling the goal. The agent can answer and continue or revise its approach. Verify delivery both during a turn and across a native continuation boundary. Source tests cover matching new input within an existing turn, excluding earlier answers, and avoiding replay after restart; live acceptance remains required. Verify that ordinary traffic is batched periodically into active work, not dispatched per message or used to wake idle agents. Regular reading during research and Pro active-chain attention still require live acceptance.
 
 Repeat capability checks separately for ChatGPT participants. Codex `/goal` documentation does not establish that a ChatGPT Pro chat supports the same mechanism. ChatGPT unattended continuation is not yet verified in this adapter. Report that limitation; do not substitute a new API model or timer-driven prompt queue without the owner's explicit agreement.
 
@@ -191,7 +191,7 @@ Verify each boundary separately:
 4. After the deadline, exactly one continuation request uses the same chat ID. The participant can post the marked result or report an actual error; do not infer success merely from elapsed time.
 5. Repeat with an approved bridge restart during the wait, then a container restart. The deadline must remain unchanged and the continuation/post must not duplicate. These are separate runtime gates, not claims established by adapter unit tests.
 
-The logical Pro turn remains active during its chosen wait; addressed questions wait rather than interrupt it. `done` schedules nothing. Stopping the node prevents execution while stopped, but restarting it resumes a persisted pending wake; this is not a cancel operation. Do not advertise a dedicated persistent wake cancellation control until it exists and is verified.
+The logical Pro turn remains active during its chosen wait. Pending board input can resume it early in the same chat, with the prior wake context retained. During generation, input waits for the next response/tool boundary. `done` schedules nothing unless input is pending. Stopping the node prevents execution while stopped, but restarting it resumes a persisted pending wake; this is not a cancel operation. Do not advertise a dedicated persistent wake cancellation control until it exists and is verified.
 
 For mathematical objectives, distinguish experimental evidence from a general proof. Obtain the graph/generator definitions, metric and quantifier range from the owner's sources rather than guessing. An unsolved objective is not a failed installation, but inability to continue an authorized objective is an installation/runtime limitation.
 

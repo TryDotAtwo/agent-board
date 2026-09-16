@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, lstat } from 'node:fs/promises';
 import path from 'node:path';
+import {ProAttention} from './pro_attention.mjs';
 
 const ATTACHMENT_ERROR = 'Frontier Pro: этот шлюз пока передаёт только текст. Вложения не отправлены в ChatGPT; пришлите нужный фрагмент текстом или обратитесь к Codex-эксперту.';
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -11,7 +12,7 @@ const validThread = id => typeof id === 'string' && id.trim() && id.length <= 25
 // restart replay attach to an existing job instead of duplicating a Chat send.
 export class ProSpoolClient extends EventEmitter {
   supportsDurableReplay = true;
-  supportsSteer = false;
+  get supportsSteer() { return Boolean(this.boardProtocol); }
   supportsAttachments = false;
   constructor({root, pollMs = 1000, boardProtocol, now=Date.now}) {
     super();
@@ -62,12 +63,20 @@ export class ProSpoolClient extends EventEmitter {
         await rename(temp,file);
       }
     }
-    Object.assign(ctx,{id,activeTurnId:`pro-${id}`,localError});
+    Object.assign(ctx,{id,activeTurnId:`pro-${id}`,localError,
+      attention:this.boardProtocol?new ProAttention({root:this.root,chain:id}):undefined});
     const turn = {id:ctx.activeTurnId,expertId,status:'inProgress'};
     this.emit('turnStarted',turn);
     return turn;
   }
-  async steerTurn() { throw new Error('Chat backend does not support steering; queue followups'); }
+  async steerTurn(expertId,input) {
+    if(!this.supportsSteer)throw new Error('Chat backend does not support steering; queue followups');
+    const ctx=this.contexts.get(expertId);
+    if(this.closed||!ctx?.activeTurnId||!ctx.attention)throw new Error('No active Pro chain');
+    if(!Array.isArray(input)||!input.length||input.some(x=>x.type!=='text'||typeof x.text!=='string'))throw new Error(ATTACHMENT_ERROR);
+    await ctx.attention.add(input.map(x=>x.text).join('\n'));
+    return {id:ctx.activeTurnId};
+  }
   async #continueBoard(expertId,ctx,prompt) {
     const id=hash([expertId,ctx.threadId,ctx.id,prompt]);
     const file=path.join(this.root,'requests',`${id}.json`);
@@ -103,6 +112,8 @@ export class ProSpoolClient extends EventEmitter {
               continue;
             }
             if (result.status!=='completed') continue;
+            const replay=await ctx.attention?.handoff(ctx.id);
+            if(replay?.count) {await this.#continueBoard(expertId,ctx,replay.prompt);continue;}
             if (result.silent===true) {
               if (result.answer!==undefined) throw new Error('invalid Pro silent result');
               answer='';
@@ -114,12 +125,23 @@ export class ProSpoolClient extends EventEmitter {
                 if(command?.prompt) {
                   if(command.notBefore!==undefined) {
                     if(!Number.isSafeInteger(command.notBefore)||command.notBefore<0)throw new Error('invalid wake deadline');
-                    if(this.now()<command.notBefore)continue;
+                    if(this.now()<command.notBefore&&!await ctx.attention.pending())continue;
                   }
-                  await this.#continueBoard(expertId,ctx,command.prompt);continue;
+                  const base=command.notBefore!==undefined&&this.now()<command.notBefore
+                    ? `An addressed question arrived before your selected wake deadline. Your previous wake context follows; its deadline has not elapsed.\n${command.prompt}`
+                    :command.prompt;
+                  const handoff=await ctx.attention.freeze(ctx.id,base);
+                  await this.#continueBoard(expertId,ctx,handoff.prompt);continue;
                 }
                 if(command?.silent) answer='';
               }
+            }
+            if(ctx.attention&&await ctx.attention.pending()) {
+              const base=answer
+                ? `Your previous response remains in this chat and has NOT been published to Telegram. Preserve or publish its useful results while handling the new input. Previous response excerpt:\n${answer.slice(0,11000)}`
+                : 'New input arrived before this work chain closed. Continue in this same chat.';
+              const handoff=await ctx.attention.freeze(ctx.id,base);
+              await this.#continueBoard(expertId,ctx,handoff.prompt);continue;
             }
           } catch (error) {
             if (error.code!=='ENOENT' && !ctx.readWarned) { ctx.readWarned=true; this.emit('warning', 'Pro result is unavailable or invalid; retaining pending request'); }

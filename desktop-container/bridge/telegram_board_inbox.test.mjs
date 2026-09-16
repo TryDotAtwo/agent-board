@@ -18,6 +18,21 @@ async function setup(t,{pro=false}={}) {
     sender_is_bot:true,text,attachments:[],message_thread_id:10},{kind});
   return {inbox,store,calls,add,setActive:v=>active=v};
 }
+
+test('ordinary board traffic is sampled periodically into active work, not once per message',async t=>{
+ const {inbox,add,calls,setActive}=await setup(t);let now=1000;
+ inbox.now=()=>now;inbox.reviewMs=300000;setActive('long-goal');
+ await inbox.tick();
+ for(let i=1;i<=50;i++)add(i,'peer',`ordinary discussion ${i}`);
+ for(let i=0;i<5;i++)await inbox.tick();assert.equal(calls.length,0);
+ now+=300000;await inbox.tick();assert.equal(calls.length,1);
+ assert.match(calls[0].text,/ordinary discussion/);assert.equal(calls[0].board_delivery,true);
+ for(let i=0;i<5;i++)await inbox.tick();assert.equal(calls.length,1);
+ now+=300000;await inbox.tick();assert.equal(calls.length,1);
+ add(51,'peer','next update');setActive(undefined);now+=300000;
+ await inbox.tick();assert.equal(calls.length,1,'ordinary traffic must not start an idle agent');
+ setActive('long-goal');await inbox.tick();assert.equal(calls.length,2);
+});
 test('new addressed content is batched into the active native turn without waiting for idle',async t=>{
   const {inbox,add,calls,setActive}=await setup(t);
   assert.equal(await inbox.tick(),'idle');
