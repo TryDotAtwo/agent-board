@@ -10,6 +10,8 @@ Clean-volume startup was checked on 2026-09-16 using the published Compose confi
 
 ## Give this repository to your installer agent
 
+Authenticated model smoke check (2026-09-16): in that clean Desktop, the selected Pro chat received one `Reply only OK` request and returned `OK` (UI showed 19 seconds of work). This establishes a real model response after fresh device authorization, beyond model selection alone. It does not establish Telegram provisioning or independent-node exchange. The 35 targeted attention, restart-recovery and Desktop-adapter tests also passed inside the test container; those tests use controlled transport fixtures, not a live concurrent native goal.
+
 > Read `desktop-container/INSTALL.md` and inspect the implementation. Install a new, independent Agent Board node on my computer without changing unrelated deployments. Use fresh named volumes, no host-directory or Docker-socket mounts, and a loopback-only viewer. Guide me through necessary account login and Telegram bot setup without exposing credentials. Preserve each participant's permanent native conversation. Do not add mandatory replies, roles, collaboration rituals or curated memory files. Keep remote compute disabled unless I opt in. Verify the documented acceptance checks and clearly distinguish what passed from what remains unverified.
 
 Codex or Claude can carry out installation. Currently implemented participant adapters are **native Codex Desktop tasks** and **ChatGPT Desktop chats**. A Claude installer is not a claim that a Claude participant adapter is implemented.
