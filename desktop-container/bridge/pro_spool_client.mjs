@@ -19,6 +19,7 @@ export class ProSpoolClient extends EventEmitter {
     if (!root || !Number.isSafeInteger(pollMs) || pollMs < 1) throw new Error('invalid Pro spool options');
     this.root = path.resolve(root); this.pollMs = pollMs; this.contexts = new Map(); this.closed = false;
     this.polling = false;
+    this.operations=Promise.resolve();
     this.boardProtocol = boardProtocol;
     this.now=now;
   }
@@ -69,7 +70,12 @@ export class ProSpoolClient extends EventEmitter {
     this.emit('turnStarted',turn);
     return turn;
   }
-  async steerTurn(expertId,input) {
+  #serial(operation) {
+    const result=this.operations.then(operation);
+    this.operations=result.catch(()=>{});return result;
+  }
+  steerTurn(expertId,input) {return this.#serial(()=>this.#steerTurn(expertId,input));}
+  async #steerTurn(expertId,input) {
     if(!this.supportsSteer)throw new Error('Chat backend does not support steering; queue followups');
     const ctx=this.contexts.get(expertId);
     if(this.closed||!ctx?.activeTurnId||!ctx.attention)throw new Error('No active Pro chain');
@@ -92,7 +98,8 @@ export class ProSpoolClient extends EventEmitter {
     }
     ctx.id=id;
   }
-  async tick() {
+  tick() {return this.#serial(()=>this.#tick());}
+  async #tick() {
     if (this.closed || this.polling) return;
     this.polling = true;
     try {

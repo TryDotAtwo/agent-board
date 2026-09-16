@@ -64,6 +64,21 @@ async function fixture(t) {
   return { root, client };
 }
 
+test('completion racing with a correction never acknowledges input that is stranded in a closed chain',async t=>{
+ const {root,client}=await fixture(t);client.boardProtocol=new ProBoardProtocol({root,call:async()=>({})});
+ const turn=await client.startTurn('pro',[{type:'text',text:'Finish current step'}]),id=turn.id.slice(4);
+ await writeFile(path.join(root,'results',id+'.json'),JSON.stringify({id,threadId:'chat-pro',status:'completed',silent:true}));
+ const box=client.contexts.get('pro').attention,readPending=box.pending.bind(box);
+ let reached,release;const observed=new Promise(r=>{reached=r;}),gate=new Promise(r=>{release=r;});
+ box.pending=async()=>{const value=await readPending();reached();await gate;return value;};
+ const ticking=client.tick();await observed;
+ const steering=client.steerTurn('pro',[{type:'text',text:'Late addressed question'}]);
+ const outcome=steering.then(()=>true,()=>false);
+ await new Promise(r=>setTimeout(r,30));release();await ticking;
+ if(await outcome)assert.equal((await readdir(path.join(root,'requests'))).length,2,'acknowledged question must be in a continuation');
+ else assert.equal(client.getActiveTurnId('pro'),undefined,'caller must retry unacknowledged input after completion');
+});
+
 for(const terminal of ['done','silent','final','wake'])test(`pending question is retained at ${terminal} boundary`,async t=>{
  const {root,client}=await fixture(t);
  client.boardProtocol=new ProBoardProtocol({root,call:async()=>({})});
