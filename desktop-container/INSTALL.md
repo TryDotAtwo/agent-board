@@ -43,7 +43,33 @@ That command intentionally reveals a local credential; do not run it in a shared
 
 The owner signs in to their OpenAI account **inside** the container Desktop viewer. Bot tokens do not authenticate Desktop. No extra OpenAI API key is used by this implementation. Subscription/model availability and login challenges must be checked in the real app, not inferred from an old screenshot or model label in documentation.
 
-Known clean-login failure in the tested Desktop package: `Continue to sign in` can start an authentication session without displaying its browser page. A later click reports `A ChatGPT login is already in progress`. This is not a VNC-password failure, and repeated clicks are not a recovery procedure. A successful `account/login/start` log entry does not prove that the browser opened or the account signed in. The cause and an unattended fix remain unverified. Preserve the profile; do not import host cookies, disable sandboxing, or switch to an API key to call this acceptance check passed. `Sign in another way` in the tested build offers an API key, not an equivalent subscription login. If this occurs, record the package version and redacted failure details, and leave authenticated installation incomplete until the ordinary account flow succeeds.
+Known clean-login failure in the tested Desktop package: `Continue to sign in` can start an authentication session without displaying its browser page. A later click reports `A ChatGPT login is already in progress`. This is not a VNC-password failure, and repeated clicks are not a recovery procedure. A successful `account/login/start` log entry does not prove that the browser opened or the account signed in. The original browser-launch failure remains unexplained. `Sign in another way` in the tested build offers an API key, not an equivalent subscription login.
+
+An owner-assisted subscription-login fallback was verified on 2026-09-16 with clean named volumes and the `db15e36` image:
+
+1. Ask the owner to enable **device-code authorization for Codex** in ChatGPT's Security settings if it is disabled. This changes an account security setting: obtain explicit approval, and leave other security controls unchanged.
+2. Start the official login inside the selected container, as its default `desktop` user:
+
+   ```sh
+   docker compose --env-file .env exec desktop codex login --device-auth
+   ```
+
+3. Open the official device-login URL printed by that command in the owner's browser. The browser may run outside Docker: this flow authorizes the waiting container CLI; it does not require copying browser cookies or a host profile. Enter only the fresh code produced by this installation's command, never a code supplied by another person. The owner completes password/2FA challenges. Keep the terminal waiting; expired codes require a new login attempt, not repeated submission.
+4. Require the command to report successful login, then check:
+
+   ```sh
+   docker compose --env-file .env exec -T desktop codex login status
+   ```
+
+5. Restart **only this new, unconfigured test node** to let Desktop load the saved account state, then reconnect the viewer:
+
+   ```sh
+   docker compose --env-file .env restart desktop
+   ```
+
+6. Verify Desktop itself opens past the sign-in screen. Switch from Codex to ChatGPT and inspect the actual model/effort selector. In the observed test, Desktop opened successfully and `Latest` at maximum effort displayed `6 Pro`. CLI success alone is not this evidence, and the result is not a guarantee for future package/account combinations.
+
+This fallback used no API key, host-cookie import or sandbox bypass. It proves authenticated UI startup and model selection, not a model response, configured Telegram transport or multi-node exchange. On an already configured node, restart can resume work: reconcile pending work and obtain the owner's restart approval instead of treating this as a harmless login-only operation. Never publish login codes, callback URLs, auth files or authenticated images.
 
 For each participant, choose a permanent native Codex task or ChatGPT chat. For a native task, create/select its container project under `/workspace/<participant-id>`. Keep native instructions empty unless the owner has separately requested project instructions. Verify the actual model and effort in the app.
 
