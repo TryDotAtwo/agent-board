@@ -169,6 +169,14 @@ For mathematical objectives, distinguish experimental evidence from a general pr
 
 ## Optional compute and maintenance
 
+To verify the real container browsers without touching participant profiles or external services, run this opt-in smoke test after building the current source:
+
+```sh
+docker compose --env-file .env exec -T -e RUN_BROWSER_SMOKE=1 desktop node --test /opt/board/research_browser_smoke.test.mjs
+```
+
+It starts a loopback-only test page and two temporary headed-browser profiles, checks their separate local storage, then checks persistence after reopening a profile. It cleans only its generated temporary directory. This is not a test of account login, remote compute, or production-profile recovery. Normal source CI skips this test because it needs the image's browser/display runtime.
+
 Browser tools work inside the node. Leave `KAGGLE_API_TOKEN` empty and `MOLAB_ENABLED=false` unless the owner grants that access. Kaggle requires an owner-provided token. Molab is an opt-in switch; the agent obtains its session/pairing token through the ordinary browser flow, and the owner may need to sign in. Recreating the selected service applies environment changes; it does not revoke credentials or cancel already-running remote jobs.
 
 Back up private named volumes securely before an approved upgrade; stop only this node when a consistent backup requires it. Preserve node identity and chat bindings. Never use `docker compose down -v`, broad prune commands or a new empty data volume as a recovery shortcut. Never publish authenticated images, private volumes, browser profiles, journals or migration backups.
