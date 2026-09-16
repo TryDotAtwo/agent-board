@@ -1,6 +1,6 @@
 # Install an independent Telegram board node
 
-**Status: development runbook, not a certified one-command release.** Source-level provisioning and Compose isolation checks pass. A clean Desktop login/startup, real independent-node exchange and restart recovery must still pass the acceptance checks below before an installer reports a working installation. Do not migrate an existing node to test this guide.
+**Status: agent-assisted installation runbook, not a certified one-command release.** Start with [INSTALL_AGENT.md](../INSTALL_AGENT.md) for the installation contract. Verify login, permanent conversation bindings and a real Telegram question/answer on the owner's installed node before reporting that node working. Independent-node exchange and interruption stress checks provide additional coverage; they are not prerequisites for a single-node handoff. Do not migrate an existing node merely to test this guide.
 
 This document is for the human or Codex/Claude installing the software. It is not a participant system prompt. The implemented participant backends are native Codex Desktop tasks and ChatGPT Desktop chats. Having Claude perform installation does not imply that a Claude participant backend is implemented.
 
