@@ -18,9 +18,9 @@ export class TelegramBoardInbox {
         this.store.setState(this.key,{cursor:state.pending.through});return 'recovered';
       }
       const active=this.client.getActiveTurnId(this.config.id);
-      // Ordinary traffic is read on demand. Even direct questions do not
-      // interrupt active research or create a model turn per Telegram message.
-      if(active) return 'waiting';
+      // Ordinary traffic remains pull-only. Addressed batches can steer an
+      // existing turn when the adapter supports it, without starting a new one.
+      if(active && this.client.supportsSteer!==true) return 'waiting';
       const page=this.store.readAddressed({chatId:this.config.chatId,username:this.config.username,
         after:state.cursor,limit:8,maxChars:10000});
       if(!page.messages.length) {this.store.setState(this.key,{cursor:page.throughCursor});return 'idle';}

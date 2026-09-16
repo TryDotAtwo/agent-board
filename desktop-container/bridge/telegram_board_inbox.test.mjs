@@ -18,15 +18,14 @@ async function setup(t,{pro=false}={}) {
     sender_is_bot:true,text,attachments:[],message_thread_id:10},{kind});
   return {inbox,store,calls,add,setActive:v=>active=v};
 }
-test('new addressed content is batched and does not interrupt an active native turn',async t=>{
+test('new addressed content is batched into the active native turn without waiting for idle',async t=>{
   const {inbox,add,calls,setActive}=await setup(t);
   assert.equal(await inbox.tick(),'idle');
   add(1);add(2);add(3,'astra');add(4,'other','working','status');
   await inbox.tick();assert.equal(calls.length,1);
   assert.match(calls[0].text,/message 1/);assert.match(calls[0].text,/message 2/);
   assert.doesNotMatch(calls[0].text,/message 3|working/);
-  add(5,'another');assert.equal(await inbox.tick(),'waiting');assert.equal(calls.length,1);
-  setActive(undefined);await inbox.tick();assert.equal(calls.length,2);
+  add(5,'another');assert.equal(await inbox.tick(),'steered');assert.equal(calls.length,2);
   await inbox.tick();assert.equal(calls.length,2);
 });
 test('Pro waits until idle without advancing its cursor, then receives the pending originals',async t=>{

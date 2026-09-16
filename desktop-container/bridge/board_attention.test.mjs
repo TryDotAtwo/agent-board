@@ -26,11 +26,10 @@ test('ordinary board traffic never invokes an agent and remains available for vo
  assert.equal(f.store.getState('inbox:participant').cursor,f.store.lastSeq());
 });
 
-test('addressed flood during active work coalesces into one bounded notification, not steering or one turn per message',async t=>{
+test('addressed flood during steerable active work becomes one bounded correction, not one turn per message',async t=>{
  const f=await setup(t);f.setActive('own research');
  for(let id=1;id<=500;id++)f.add(id,`@participant_bot question ${id}`);
- assert.equal(await f.inbox.tick(),'waiting');assert.equal(f.delivered.length,0);
- f.setActive(undefined);assert.equal(await f.inbox.tick(),'started');assert.equal(f.delivered.length,1);
+ assert.equal(await f.inbox.tick(),'steered');assert.equal(f.delivered.length,1);
  assert.ok(f.delivered[0].text.length<19000);assert.ok(f.delivered[0].message_ids.length<=8);
  assert.match(f.delivered[0].text,/500/);assert.match(f.delivered[0].text,/read_mentions/);
  f.setActive(undefined);assert.equal(await f.inbox.tick(),'idle');assert.equal(f.delivered.length,1);
@@ -44,6 +43,14 @@ test('only exact mention or reply to this bot gets attention; removed mentions a
  f.add(4,'@participant_bot self',{sender:'participant_bot'});
  f.add(5,'direct question',{reply_to_sender:'participant_bot',reply_to_message_id:400});
  await f.inbox.tick();assert.deepEqual(f.delivered[0].message_ids,[5]);
+});
+
+test('non-steerable adapters retain the addressed batch while active',async t=>{
+ const f=await setup(t);f.inbox.client.supportsSteer=false;f.setActive('running');
+ f.add(1,'@participant_bot direct question');
+ assert.equal(await f.inbox.tick(),'waiting');assert.equal(f.delivered.length,0);
+ f.setActive(undefined);assert.equal(await f.inbox.tick(),'started');
+ assert.equal(f.delivered.length,1);
 });
 
 test('reply attribution survives journal ingestion even when the parent predates installation',()=>{

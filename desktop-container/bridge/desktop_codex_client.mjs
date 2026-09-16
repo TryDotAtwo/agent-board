@@ -54,7 +54,7 @@ export class DesktopCodexClient extends EventEmitter {
     if(data.thread?.id!==ctx.threadId || !Array.isArray(data.turns))throw new Error('Desktop snapshot target mismatch');
     return data;
   }
-  async startTurn(expertId,input) {
+  async startTurn(expertId,input,{allowActive=false}={}) {
     const ctx=this.contexts.get(expertId);
     if(!ctx || ctx.record)throw new Error('Desktop turn is not ready');
     const prompt=promptFor(input);
@@ -67,9 +67,10 @@ export class DesktopCodexClient extends EventEmitter {
       if(record.prompt!==prompt||record.threadId!==ctx.threadId)throw new Error('Desktop replay identity mismatch');
     } else {
       const before=await this.snapshot(ctx);
-      if(before.thread.status?.type!=='idle')throw Object.assign(new Error('Desktop task is busy outside the bridge'),
+      if(before.thread.status?.type!=='idle' && !allowActive)throw Object.assign(new Error('Desktop task is busy outside the bridge'),
         {code:'DESKTOP_BUSY_BEFORE_SEND'});
       record={threadId:ctx.threadId,prompt,activeId:`desktop-${id}`,previousTurnIds:before.turns.map(x=>x.id),
+        previousItems:before.turns.flatMap(t=>(t.items||[]).map(i=>`${t.id}:${hash(i)}`)),
         status:'sending',commentaryIds:[],steers:{}};
       await atomicJson(file,record);fresh=true;
     }
@@ -98,17 +99,20 @@ export class DesktopCodexClient extends EventEmitter {
       const r=ctx.record;if(!r)continue;
       if(r.status!=='completed') {
         const data=await this.snapshot(ctx);
-        const turn=data.turns.find(t=>!r.previousTurnIds.includes(t.id)&&t.items?.some(i=>
+        const matches=(t,i)=>(r.previousItems ? !r.previousItems.includes(`${t.id}:${hash(i)}`) : !r.previousTurnIds.includes(t.id)) && (
           (i.type==='userMessage'&&i.content?.filter(x=>x.type==='text').map(x=>x.text).join('\n')===r.prompt)||
           (i.type==='functionCallOutput'&&i.name==='send_message_to_thread'&&
-            i.output===`<codex_delegation>\n  <source_thread_id>${ctx.threadId}</source_thread_id>\n  <input>${r.prompt}</input>\n</codex_delegation>`)));
+            i.output===`<codex_delegation>\n  <source_thread_id>${ctx.threadId}</source_thread_id>\n  <input>${r.prompt}</input>\n</codex_delegation>`));
+        const turn=data.turns.find(t=>t.items?.some(i=>matches(t,i)));
         if(!turn)continue;
-        for(const item of turn.items||[])if(item.type==='agentMessage'&&item.phase==='commentary'&&item.id&&!r.commentaryIds.includes(item.id)) {
+        const responseItems=turn.items.slice(turn.items.findIndex(i=>matches(turn,i))+1);
+        for(const item of responseItems)if(item.type==='agentMessage'&&item.phase==='commentary'&&item.id&&!r.commentaryIds.includes(item.id)) {
           r.commentaryIds.push(item.id);await atomicJson(ctx.file,r);
           this.emit('commentary',{expertId,turnId:r.activeId,text:item.text});
         }
-        if(data.thread.status?.type!=='idle'||!['completed','failed','interrupted'].includes(turn.status))continue;
-        const items=turn.items.filter(i=>i.type==='agentMessage'&&i.phase!=='commentary');
+        if(!['completed','failed','interrupted'].includes(turn.status))continue;
+        if(data.thread.status?.type!=='idle' && turn.completedAt==null)continue;
+        const items=responseItems.filter(i=>i.type==='agentMessage'&&i.phase!=='commentary');
         r.finalAnswer=items.some(i=>i.truncated||i.text?.length>=20000)
           ? 'Desktop returned a truncated answer. Read the original task; no partial answer was published.'
           : items.map(i=>i.text||'').join('\n\n');

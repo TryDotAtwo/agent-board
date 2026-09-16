@@ -35,7 +35,8 @@ export class BoardTurnTransport {
   const running=this.client.getActiveTurnId(this.expertId);
   if(running&&running!==active.turnId)throw new Error('Board active turn identity conflicts with client');
   let turn;
-  try{turn=running?{id:running}:await this.client.startTurn(this.expertId,active.input);}
+  try{turn=running?{id:running}:await this.client.startTurn(this.expertId,active.input,
+   {allowActive:active.record.board_delivery===true});}
   catch(error){
    // Only an explicit pre-send refusal is retryable. Uncertain sends retain
    // the adapter's durable replay path; never classify them by error text.

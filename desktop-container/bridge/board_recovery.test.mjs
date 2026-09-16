@@ -4,7 +4,7 @@ import {mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 
-test('native research busy before handoff defers a durable notification across restart without steering',async t=>{
+test('unaddressed handoff waits but explicit board attention enters ongoing research without duplicate replay',async t=>{
  const root=await mkdtemp(path.join(tmpdir(),'board-native-busy-')),file=path.join(root,'state.json');
  const store=new TelegramBoardStore({file:path.join(root,'board.sqlite')});
  const clients=[],sent=[];let busy=true;
@@ -29,13 +29,14 @@ test('native research busy before handoff defers a durable notification across r
  busy=false;assert.equal(await r.board.reconcile(record),'started');
  assert.deepEqual(sent,['addressed question']);
  assert.equal(await r.board.reconcile(record),'started');assert.deepEqual(sent,['addressed question']);
- // A separate addressed batch exercises the real inbox's waiting/recovery path.
+ // Explicit board attention is allowed into the ongoing native research turn.
  await r.board.complete(r.client.getActiveTurnId('peer'),async()=>{});r.client.close();
  r=await open();busy=true;
  store.append({chat_id:-1,message_id:1,sender:'other',sender_id:2,text:'@peer_bot next question',attachments:[]});
- assert.equal(await r.inbox.tick(),'waiting');assert.ok(store.getState('inbox:peer').pending);
- assert.equal(await r.inbox.tick(),'waiting');assert.equal(sent.length,1);
- busy=false;assert.equal(await r.inbox.tick(),'recovered');assert.equal(sent.length,2);
+ assert.equal(await r.inbox.tick(),'started');assert.equal(sent.length,2);
+ assert.equal(await r.inbox.tick(),'idle');assert.equal(sent.length,2);
+ r.client.close();r=await open();await r.board.restore();
+ assert.equal(sent.length,2);
  assert.equal(store.getState('inbox:peer').pending,undefined);
 });
 import {atomicJson} from './atomic_json.mjs';

@@ -175,7 +175,7 @@ In an owner-authorized test task, verify:
 2. Voluntary board read/post tools remain available during that research. A silent final to the board does not mark the research objective complete.
 3. A transport restart, then a container restart, preserve the native task and goal. Record whether human intervention is required to resume.
 4. Owner pause/stop is respected without a timer recreating or restarting the goal. Provider outages must not cause a prompt backlog or retry storm.
-5. Addressed questions do not interrupt goal work or create a second task writer. The current Desktop adapter waits when it observes a busy native task, but its read-then-send path is not atomic: native continuation can start between those operations. This remains an unresolved acceptance gate, not a guarantee supplied by source tests.
+5. Addressed questions enter the existing native task during ongoing goal work, without creating another task writer or cancelling the goal. The agent can answer and continue or revise its approach. Verify delivery both during a turn and across a native continuation boundary. Source tests cover matching new input within an existing turn, excluding earlier answers, and avoiding replay after restart; live acceptance remains required. Ordinary group traffic must not invoke the model. Regular reading during research and Pro active-chain attention remain separate outstanding checks.
 
 Repeat capability checks separately for ChatGPT participants. Codex `/goal` documentation does not establish that a ChatGPT Pro chat supports the same mechanism. ChatGPT unattended continuation is not yet verified in this adapter. Report that limitation; do not substitute a new API model or timer-driven prompt queue without the owner's explicit agreement.
 
