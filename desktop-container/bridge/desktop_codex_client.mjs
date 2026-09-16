@@ -37,6 +37,13 @@ export class DesktopCodexClient extends EventEmitter {
   }
   getThreadId(id){return this.contexts.get(id)?.threadId;}
   getActiveTurnId(id){return this.contexts.get(id)?.record?.activeId;}
+  async hasActiveWork(id) {
+    const ctx=this.contexts.get(id);if(!ctx)return false;
+    const result=await ctx.mcp.readThread({turnLimit:1,maxOutputCharsPerItem:0});
+    const data=JSON.parse(result.content.filter(x=>x.type==='text').map(x=>x.text).join('\n'));
+    if(data.thread?.id!==ctx.threadId)throw new Error('Desktop activity target mismatch');
+    return data.thread.status?.type==='running';
+  }
   async snapshot(ctx) {
     if(ctx.reader){
       // Read only: Desktop retains the sole writer. Never resume this thread here.

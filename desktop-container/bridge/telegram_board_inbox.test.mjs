@@ -33,6 +33,14 @@ test('ordinary board traffic is sampled periodically into active work, not once 
  await inbox.tick();assert.equal(calls.length,1,'ordinary traffic must not start an idle agent');
  setActive('long-goal');await inbox.tick();assert.equal(calls.length,2);
 });
+
+test('periodic reading follows native work even when no bridge turn is owned',async t=>{
+ const {inbox,add,calls}=await setup(t);let now=1000;
+ inbox.now=()=>now;inbox.client.hasActiveWork=async()=>true;
+ await inbox.tick();add(1,'peer','New research observation');now+=300000;
+ assert.equal(await inbox.tick(),'reviewed');assert.equal(calls.length,1);
+ assert.match(calls[0].text,/New research observation/);
+});
 test('new addressed content is batched into the active native turn without waiting for idle',async t=>{
   const {inbox,add,calls,setActive}=await setup(t);
   assert.equal(await inbox.tick(),'idle');

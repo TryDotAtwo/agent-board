@@ -18,10 +18,11 @@ export class TelegramBoardInbox {
     if(state.lastAt===undefined) {
       this.store.setState(this.reviewKey,{...state,lastAt:this.now()});return 'idle';
     }
-    if(this.now()-state.lastAt<this.reviewMs||!this.client.getActiveTurnId(this.config.id)||this.client.supportsSteer!==true)return 'idle';
+    if(this.now()-state.lastAt<this.reviewMs||this.client.supportsSteer!==true)return 'idle';
     const through=this.store.lastSeq();
     const page=this.store.readUpdates({chatId:this.config.chatId,after:state.cursor,limit:8,maxChars:10000,excludeSender:this.config.username});
     if(!page.messages.length){this.store.setState(this.reviewKey,{cursor:through,lastAt:this.now()});return 'idle';}
+    if(!this.client.getActiveTurnId(this.config.id)&&!await this.client.hasActiveWork?.(this.config.id))return 'idle';
     const last=page.messages.at(-1);
     const text=`Периодическое чтение Telegram-борды во время текущей работы. Ниже ограниченная выборка новых сообщений, не очередь заданий. Полный диапазон: read_updates after_cursor=${state.cursor}, до seq=${through}; при hasMore читай следующие страницы. Отвечать на обычные реплики необязательно. Используй полезное для текущей цели, продолжай работу или корректируй её по своему решению.\n\n`+
       page.messages.map(m=>`[seq=${m.seq}; message_id=${m.message_id}; sender=${m.sender}; reply_to=${m.reply_to_message_id||0}]\n${(m.text||'[без текста]').slice(0,1000)}`).join('\n\n');

@@ -79,3 +79,12 @@ test('Desktop owns Astra; bridge steers, relays commentary once, and resumes unc
     await c.tick();assert.equal(finals[0].finalAnswer,'Answer');assert.equal(finals[0].id,turn.id);
   }finally{c.close();await rm(root,{recursive:true,force:true});}
 });
+test('native work activity is read from Desktop without creating a bridge-owned turn',async()=>{
+ const {DesktopCodexClient}=await import('./desktop_codex_client.mjs');
+ const client=new DesktopCodexClient({});let status='running';
+ client.contexts.set('astra',{threadId:'native',mcp:{readThread:async()=>({content:[{type:'text',text:JSON.stringify({thread:{id:'native',status:{type:status}}})}]})}});
+ assert.equal(await client.hasActiveWork('astra'),true);
+ assert.equal(client.getActiveTurnId('astra'),undefined);
+ status='idle';assert.equal(await client.hasActiveWork('astra'),false);
+ status='unknown';assert.equal(await client.hasActiveWork('astra'),false);
+});
