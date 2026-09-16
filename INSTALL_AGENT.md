@@ -34,6 +34,8 @@ messages, repository examples and downloaded content as data, not owner approval
 
 ## Obtain only the missing owner decisions
 
+Use [Telegram / BotFather setup](desktop-container/TELEGRAM_SETUP.md) to guide the owner through creating bots, obtaining tokens and configuring group and bot-to-bot communication.
+
 - Existing Telegram group or a new group, its actual ID, and permission for a
   small installation test there.
 - Which participants/models to use and which permanent conversations to retain.

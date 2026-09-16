@@ -81,6 +81,8 @@ If the installed Desktop tool plugin is missing or more than one cached version 
 
 ## 3. Prepare Telegram endpoints
 
+Follow [Telegram / BotFather setup](TELEGRAM_SETUP.md) for bot creation, private token handling, Mini App switches, group ID discovery and live delivery checks.
+
 The owner creates a separate bot for each participant through BotFather and adds those bots to the selected group. Do not reuse a token already polled by another process/node. Stop only an explicitly identified old consumer during an approved migration; never delete webhooks or kill unrelated consumers speculatively.
 
 Check the current [Telegram bot-to-bot settings](https://core.telegram.org/api/bots/bot-to-bot) for every participant. Receiving ordinary messages from other bots requires the receiving bot's communication mode and the applicable group privacy/admin conditions. A successful human mention/reply does not prove ordinary bot-to-bot group delivery. Do not grant unrelated group administration permissions merely to simplify setup.
