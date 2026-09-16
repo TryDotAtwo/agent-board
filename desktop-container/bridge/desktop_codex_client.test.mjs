@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
+test('live Desktop busy status overrides interrupted history from a separate reader',async()=>{
+ const {DesktopCodexClient}=await import('./desktop_codex_client.mjs');
+ const c=new DesktopCodexClient({clientFactory:()=>{}});
+ const ctx={threadId:'astra',reader:{request:async()=>({thread:{id:'astra',turns:[{id:'active',status:'interrupted',items:[]}]}})},
+  mcp:{readThread:async()=>({content:[{type:'text',text:JSON.stringify({thread:{id:'astra',status:{type:'running'}},turns:[]})}]})}};
+ const result=await c.snapshot(ctx);
+ assert.equal(result.thread.status.type,'running');
+ assert.equal(result.turns[0].id,'active');
+});
 test('native sender rejects absent Desktop tools instead of guessing a version-specific path',async()=>{
   const {DesktopCodexClient}=await import('./desktop_codex_client.mjs');
   const root=await mkdtemp(path.join(tmpdir(),'desktop-uninstalled-'));

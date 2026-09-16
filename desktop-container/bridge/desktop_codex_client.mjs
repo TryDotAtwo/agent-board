@@ -42,7 +42,12 @@ export class DesktopCodexClient extends EventEmitter {
       // Read only: Desktop retains the sole writer. Never resume this thread here.
       const {thread}=await ctx.reader.request('thread/read',{threadId:ctx.threadId,includeTurns:true});
       if(thread.id!==ctx.threadId)throw new Error('Native read target mismatch');
-      return {thread:{id:thread.id,status:{type:thread.turns.some(t=>t.status==='inProgress')?'running':'idle'}},turns:thread.turns};
+      // A separate app-server reconstructs unfinished history as interrupted.
+      // Only the owning Desktop can tell whether its live turn is still running.
+      const result=await ctx.mcp.readThread({turnLimit:1,maxOutputCharsPerItem:0});
+      const live=JSON.parse(result.content.filter(x=>x.type==='text').map(x=>x.text).join('\n'));
+      if(live.thread?.id!==ctx.threadId || typeof live.thread.status?.type!=='string')throw new Error('Desktop live status unavailable');
+      return {thread:{id:thread.id,status:live.thread.status},turns:thread.turns};
     }
     const result=await ctx.mcp.readThread({turnLimit:10,maxOutputCharsPerItem:20000});
     const data=JSON.parse(result.content.filter(x=>x.type==='text').map(x=>x.text).join('\n'));
