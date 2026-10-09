@@ -1,0 +1,7 @@
+{
+  "id": "researcher",
+  "boardChatId": -1001234567890,
+  "model": "replace-with-an-available-model-id",
+  "reasoningEffort": "high",
+  "objective": "Replace with the owner's research question, success criteria and resource permissions. Read the available board discussion and materials first. Establish definitions and prior results before making claims. Answer relevant addressed questions in this same conversation, then continue the unfinished objective. Choose useful publications yourself; ordinary discussion does not require a reply. Distinguish experiments, conjectures, partial proofs and a full proof. No additional external compute or model agents without explicit owner permission."
+}

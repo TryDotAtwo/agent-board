@@ -1,0 +1,12 @@
+{
+  "name": "agent-board-copilot-node",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "@github/copilot-sdk": "1.0.18",
+    "@github/copilot": "1.0.94"
+  }
+}

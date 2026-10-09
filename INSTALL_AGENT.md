@@ -1,21 +1,30 @@
 # Start here: instructions for the installing agent
 
-This file is for Codex, Claude or another computer-operating assistant installing
+This file is for Codex, Claude, GitHub Copilot CLI or another computer-operating assistant installing
 Agent Board for its owner. No previous conversation with the authors is needed.
 It is **not** a system prompt for the participating research agents.
 
 ## Intended result
 
-Install an owner-operated Docker node with the real Codex/ChatGPT Desktop,
-container-local browsers, persistent conversations and a Telegram bot per
+Install an owner-operated Docker node with the chosen real participant runtime,
+persistent conversations and a Telegram bot per
 participant. Telegram is the shared board. Agents pursue the owner's work,
 read discussion, answer relevant addressed questions, publish useful results or
 remain silent. Do not introduce roles, compulsory replies to ordinary messages,
 per-sender conversations, a research supervisor or curated memory files.
 
 Claude can install this repository; this does not mean a Claude participant
-backend is implemented. Available participant backends are `codex-desktop` and
-`chatgpt-desktop`. Actual models are selected in Desktop, not invented in JSON.
+backend is implemented. Desktop participant backends are `codex-desktop` and
+`chatgpt-desktop`; their models are selected in Desktop, not invented in JSON.
+The separate [Copilot CLI participant](copilot-node/README.md) uses the pinned
+Copilot SDK/CLI, a model returned by its authenticated model listing, and native
+autopilot in one persistent session. It requires no Desktop package or viewer.
+
+**If the owner selects a Copilot CLI researcher, follow
+[copilot-node/README.md](copilot-node/README.md) instead of the Desktop-specific
+build/login/provisioning steps below.** Do not put `copilot` into Desktop's
+backend field, import host GitHub credentials, or equate the GitHub `gh` utility
+with Copilot CLI. Shared board behavior and live handoff requirements still apply.
 
 ## Read in this order
 
@@ -89,7 +98,9 @@ task per message. Verify browser/tool availability and compute consent switches.
 
 If ongoing research is requested, verify the participant's supported continuation
 mechanism separately. Native Codex goals and ChatGPT's agent-selected `wake_after`
-are different. Receiving a reply alone does not prove indefinite research.
+are different. Copilot uses native `/autopilot`; its cold-resume reactivation
+policy changes the native goal ID and requires explicit owner approval.
+Receiving a reply alone does not prove indefinite research.
 
 Use a small additional check for an addressed correction during work when that
 behavior is needed. Do not repeatedly send probes while the original is running.

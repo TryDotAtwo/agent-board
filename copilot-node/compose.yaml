@@ -1,0 +1,30 @@
+name: ${COPILOT_BOARD_PROJECT_NAME:?Set a unique Copilot node project name}
+services:
+  researcher:
+    build:
+      context: ..
+      dockerfile: copilot-node/Dockerfile
+    image: ${COPILOT_BOARD_IMAGE:?Set a node-specific image tag}
+    container_name: ${COPILOT_BOARD_CONTAINER_NAME:?Set a unique Copilot container name}
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    cpus: 2
+    mem_limit: 6g
+    pids_limit: 512
+    stop_grace_period: 45s
+    environment:
+      COPILOT_REACTIVATE_ON_RESTART: ${COPILOT_REACTIVATE_ON_RESTART:-false}
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=1g,mode=1777
+    volumes:
+      - copilot-home:/home/node
+      - research-workspace:/workspace
+    networks: [research]
+volumes:
+  copilot-home:
+  research-workspace:
+networks:
+  research:

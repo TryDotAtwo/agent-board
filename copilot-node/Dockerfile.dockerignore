@@ -1,0 +1,9 @@
+**
+!copilot-node/
+!copilot-node/Dockerfile
+!copilot-node/package.json
+!copilot-node/package-lock.json
+!copilot-node/*.mjs
+!desktop-container/
+!desktop-container/bridge/
+!desktop-container/bridge/*.mjs

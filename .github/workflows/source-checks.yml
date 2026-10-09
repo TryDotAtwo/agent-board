@@ -18,6 +18,10 @@ jobs:
           node-version: '22.23.2'
       - name: Transport and durable-state tests
         run: node --test --test-reporter=spec desktop-container/bridge/*.test.mjs
+      - name: Copilot persistent-session adapter
+        run: node --test --test-reporter=spec copilot-node/session-adapter.test.mjs
+      - name: Copilot isolated Compose configuration
+        run: python3 copilot-node/compose_configuration_test.py
       - name: Health predicates
         run: python3 desktop-container/healthcheck_test.py
       - name: Independent Compose configurations
